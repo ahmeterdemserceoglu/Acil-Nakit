@@ -20,7 +20,8 @@ import javax.inject.Singleton
 
 @Singleton
 class TaskRepository @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val storage: com.google.firebase.storage.FirebaseStorage
 ) {
     private val tasksCollection = firestore.collection("tasks")
     private val requestsCollection = firestore.collection("task_requests")
@@ -306,17 +307,35 @@ class TaskRepository @Inject constructor(
     // ==================== TESLİM VE ONAY SİSTEMİ ====================
     
     /**
-     * İşçi: İşi teslim ettim
+     * İşçi: İşi teslim ettim (Kanıtlı)
      */
-    suspend fun markAsDelivered(taskId: String) {
+    suspend fun deliverTask(taskId: String, proofUri: android.net.Uri?, note: String?) {
+        var proofUrl: String? = null
+
+        // Eğer resim varsa önce storage'a yükle
+        proofUri?.let { uri ->
+            val ref = storage.reference.child("delivery_proofs/$taskId/${System.currentTimeMillis()}.jpg")
+            ref.putFile(uri).await()
+            proofUrl = ref.downloadUrl.await().toString()
+        }
+
         tasksCollection.document(taskId).update(
             mapOf(
                 "status" to TaskStatus.DELIVERED.name,
                 "workerConfirmed" to true,
-                "deliveredAt" to Timestamp.now()
+                "deliveredAt" to Timestamp.now(),
+                "deliveryProofUrl" to proofUrl,
+                "deliveryNote" to note
             )
         ).await()
-        android.util.Log.d("TaskRepository", "Task $taskId marked as delivered")
+        android.util.Log.d("TaskRepository", "Task $taskId delivered with proof")
+    }
+
+    /**
+     * İşçi: İşi teslim ettim (Eski metod, geriye dönük uyumluluk için tutulabilir veya güncellenebilir)
+     */
+    suspend fun markAsDelivered(taskId: String) {
+        deliverTask(taskId, null, null)
     }
 
     /**

@@ -53,7 +53,11 @@ data class Task(
     
     // Oylama Durumu
     val ratedByCreator: Boolean = false,
-    val ratedByWorker: Boolean = false
+    val ratedByWorker: Boolean = false,
+
+    // Teslimat Kanıtı
+    val deliveryProofUrl: String? = null,
+    val deliveryNote: String? = null
 )
 
 enum class PaymentStatus {

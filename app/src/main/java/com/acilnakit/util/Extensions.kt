@@ -28,7 +28,7 @@ import com.google.firebase.Timestamp
  * Formats a Double as Turkish Lira currency.
  * Usage: 100.0.toTL() -> "₺100,00"
  */
-fun Double.toTL(): String = String.format("₺%.2f", this)
+fun Double.toTL(): String = String.format(Locale("tr", "TR"), "₺%.2f", this)
 
 /**
  * Formats a Double for price display (no decimal if whole number).
