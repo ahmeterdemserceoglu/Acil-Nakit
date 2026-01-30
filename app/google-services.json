@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "777166045750",
+    "firebase_url": "https://gane-35146-default-rtdb.firebaseio.com",
+    "project_id": "gane-35146",
+    "storage_bucket": "gane-35146.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:777166045750:android:a848f1d765788e0d4d0e97",
+        "android_client_info": {
+          "package_name": "com.acilnakit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "777166045750-hjb94iphv8p5ait7itj69vmof3jvsmla.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtZKxYUFSFzsxVEem8b1E0zsw0yYmTR2I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "777166045750-hjb94iphv8p5ait7itj69vmof3jvsmla.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

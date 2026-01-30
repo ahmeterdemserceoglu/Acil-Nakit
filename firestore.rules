@@ -1,0 +1,234 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==================== YARDIMCI FONKSİYONLAR ====================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+    
+    function isTaskOwner() {
+      return resource.data.creatorId == request.auth.uid;
+    }
+    
+    function isTaskWorker() {
+      return resource.data.workerId == request.auth.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ==================== GLOBAL ADMIN ACCESS ====================
+    
+    // Admin her şeye her türlü erişebilir (Geliştirme ve Panel için)
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // ==================== GÖREVLER (TASKS) ====================
+    
+    match /tasks/{taskId} {
+      // Okuma: Kimliği doğrulanmış ve email onaylı kullanıcılar
+      allow read: if isAuthenticated() && isEmailVerified();
+      
+      // Oluşturma: Kendi görevini oluşturabilir
+      allow create: if isAuthenticated() 
+        && isEmailVerified()
+        && request.resource.data.creatorId == request.auth.uid
+        && request.resource.data.status == 'OPEN';
+      
+      // Güncelleme: 
+      // - Görev sahibi: tüm alanları (iptal, düzenleme, onaylama)
+      // - Başvuranlar: requestedBy listesine ekleme
+      // - Atanan işçi: durum güncellemeleri
+      allow update: if isAuthenticated() && isEmailVerified() && (
+        // Görev Sahibi
+        isTaskOwner() ||
+        
+        // Başvuru ekleme
+        (
+          request.auth.uid in request.resource.data.requestedBy &&
+          !(request.auth.uid in resource.data.requestedBy)
+        ) ||
+        
+        // Atanan İşçi
+        isTaskWorker()
+      );
+
+      // Silme: Sadece görev sahibi, OPEN veya CANCELLED durumda
+      allow delete: if isAuthenticated() 
+        && isTaskOwner()
+        && (resource.data.status == 'OPEN' || resource.data.status == 'CANCELLED');
+    }
+
+    // ==================== GÜVENLİK ALARMLARI ====================
+
+    match /security_alerts/{alertId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ==================== GÖREV BAŞVURULARI (TASK_REQUESTS) ====================
+    
+    match /task_requests/{requestId} {
+      allow read: if isAuthenticated() && isEmailVerified();
+      allow create: if isAuthenticated() && isEmailVerified();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ==================== KULLANICI PROFİLLERİ (USERS) ====================
+    
+    match /users/{userId} {
+      // Okuma: Herkes okuyabilir (public profil) veya Admin
+      allow read: if isAuthenticated() || isAdmin();
+      
+      // Oluşturma: Sadece kendi profilini oluşturabilir
+      allow create: if isAuthenticated() && isOwner(userId);
+      
+      // Güncelleme: Kendi profilini güncelleyebilir
+      // Rating, reviewCount, trustScore artırma için özel kontrol
+      allow update: if isAuthenticated() && isOwner(userId) && (
+        // Normal güncellemeler (rating/trustScore artırılamaz direkt)
+        (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['rating', 'reviewCount', 'trustScore'])
+        ) ||
+        
+        // Balance ve Escrow işlemleri
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['balance', 'escrowBalance', 'publishedTasks', 'completedTasks', 'fcmToken', 'profileImageUrl'])
+        ) ||
+        // Admin her şeyi güncelleyebilir
+        isAdmin()
+      );
+    }
+
+    // ==================== DEĞERLENDİRMELER (REVIEWS) ====================
+    
+    match /reviews/{reviewId} {
+      // Okuma: Herkes okuyabilir
+      allow read: if isAuthenticated();
+      
+      // Oluşturma: Kimliği doğrulanmış kullanıcılar
+      allow create: if isAuthenticated() && isEmailVerified();
+      
+      // Güncelleme/Silme: Yasak
+      allow update, delete: if false;
+    }
+
+    // ==================== İŞLEMLER (TRANSACTIONS) ====================
+    
+    match /transactions/{transactionId} {
+      // Okuma: Sadece kendi işlemlerini görebilir veya Admin
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Oluşturma: Kimliği doğrulanmış herkes (REFUND, ESCROW, PAYMENT vb.)
+      allow create: if isAuthenticated();
+      
+      // Güncelleme/Silme: Yasak
+      allow update, delete: if false;
+    }
+
+    // ==================== ÖDEME BEKLEYENLERİ ====================
+    
+    match /pending_payments/{paymentId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Sadece Cloud Functions
+    }
+
+    // ==================== PARA ÇEKİMLERİ ====================
+    
+    match /withdrawals/{withdrawalId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ==================== SOHBETLER ====================
+    
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && isEmailVerified();
+      allow create: if isAuthenticated() && isEmailVerified();
+      allow update: if isAuthenticated() && isEmailVerified() && 
+        request.auth.uid in resource.data.participants;
+      
+      // Alt koleksiyon: Messages
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() && isEmailVerified();
+      }
+    }
+
+    // ==================== ŞİKAYETLER (DISPUTES) ====================
+    
+    match /disputes/{disputeId} {
+      allow read: if (isAuthenticated() && (
+        resource.data.reporterId == request.auth.uid ||
+        resource.data.reportedUserId == request.auth.uid
+      )) || isAdmin();
+      
+      // Oluşturma: Kimliği doğrulanmış kullanıcılar
+      allow create: if isAuthenticated() && isEmailVerified();
+      
+      // Güncelleme: Admin veya Cloud Functions
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ==================== ÜNİVERSİTELER ====================
+    
+    match /universities/{universityId} {
+      allow read: if true;
+      allow write: if false;
+      
+      match /campuses/{campusId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // ==================== AYARLAR (SETTINGS) ====================
+    
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if false; // Sadece Admin
+    }
+    
+    // ==================== DEPOLAMA META VERİLERİ ====================
+    
+    match /storage_metadata/{metadataId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ==================== BİLDİRİMLER ====================
+    
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ==================== FAVORİLER ====================
+    
+    match /favorites/{favoriteId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
