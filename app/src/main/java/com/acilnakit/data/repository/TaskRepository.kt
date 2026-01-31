@@ -36,6 +36,8 @@ class TaskRepository @Inject constructor(
         val subscription = tasksCollection
             .whereEqualTo("schoolName", school)
             .whereIn("status", listOf(TaskStatus.OPEN.name, TaskStatus.REQUESTED.name))
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     android.util.Log.e("TaskRepository", "Firestore error: ${error.message}")
@@ -71,6 +73,8 @@ class TaskRepository @Inject constructor(
     fun getMyCreatedTasks(userId: String): Flow<List<Task>> = callbackFlow {
         val subscription = tasksCollection
             .whereEqualTo("creatorId", userId)
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val tasks = snapshot?.toListModel<Task>() ?: emptyList()
@@ -85,6 +89,8 @@ class TaskRepository @Inject constructor(
     fun getMyAssignedTasks(userId: String): Flow<List<Task>> = callbackFlow {
         val subscription = tasksCollection
             .whereEqualTo("workerId", userId)
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val tasks = snapshot?.toListModel<Task>() ?: emptyList()
@@ -101,6 +107,8 @@ class TaskRepository @Inject constructor(
         // veya iki ayrı query birleştirilebilir. Basitlik ve real-time için iki listener:
         val subscription = tasksCollection
             .whereIn("status", listOf(TaskStatus.COMPLETED.name, TaskStatus.CANCELLED.name))
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(100)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val allArchived = snapshot?.toListModel<Task>() ?: emptyList()
@@ -122,6 +130,8 @@ class TaskRepository @Inject constructor(
                 TaskStatus.IN_PROGRESS.name, 
                 TaskStatus.DELIVERED.name
             ))
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val active = snapshot?.toListModel<Task>() ?: emptyList()

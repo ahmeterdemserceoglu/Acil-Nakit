@@ -49,4 +49,5 @@ class WithdrawalRepository @Inject constructor(
     fun getWithdrawalRequests(userId: String) = firestore.collection("withdrawals")
         .whereEqualTo("userId", userId)
         .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+        .limit(20)
 }

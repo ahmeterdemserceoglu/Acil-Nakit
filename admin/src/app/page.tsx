@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit, orderBy, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, orderBy, doc, getDoc, getCountFromServer } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 
 const containerVariants = {
@@ -71,42 +71,44 @@ export default function Dashboard() {
   async function fetchData() {
     setLoading(true);
     try {
-      const usersSnap = await getDocs(collection(db, "users"));
-      const withdrawalsSnap = await getDocs(query(collection(db, "withdrawals"), where("status", "==", "pending")));
-      const completedWithdrawalsSnap = await getDocs(query(collection(db, "withdrawals"), where("status", "==", "completed")));
-      const verifiedSnap = await getDocs(query(collection(db, "users"), where("isVerified", "==", false)));
-      const tasksSnap = await getDocs(query(collection(db, "tasks"), where("status", "in", ["OPEN", "IN_PROGRESS"])));
-      const disputesSnap = await getDocs(query(collection(db, "disputes"), where("status", "==", "PENDING")));
+      // 1. O(1) Reads: Counts from Server (Cost: 1 read per query, NOT per document)
+      const [
+        usersCount,
+        pendingWithdrawalsCount,
+        unverifiedUsersCount,
+        activeTasksCount,
+        disputesCount,
+        boostedTasksCount
+      ] = await Promise.all([
+        getCountFromServer(collection(db, "users")),
+        getCountFromServer(query(collection(db, "withdrawals"), where("status", "==", "pending"))),
+        getCountFromServer(query(collection(db, "users"), where("isVerified", "==", false))),
+        getCountFromServer(query(collection(db, "tasks"), where("status", "in", ["OPEN", "IN_PROGRESS"]))),
+        getCountFromServer(query(collection(db, "disputes"), where("status", "==", "PENDING"))),
+        getCountFromServer(query(collection(db, "tasks"), where("isBoosted", "==", true), where("status", "in", ["OPEN", "IN_PROGRESS"])))
+      ]);
+
+      // 2. Fetch specific UI data (Limited)
       const alertsSnap = await getDocs(query(collection(db, "security_alerts"), where("status", "==", "PENDING"), limit(5)));
-      const boostedSnap = await getDocs(query(collection(db, "tasks"), where("isBoosted", "==", true), where("status", "in", ["OPEN", "IN_PROGRESS"])));
+      const recentTasksSnap = await getDocs(query(collection(db, "tasks"), where("status", "in", ["OPEN", "IN_PROGRESS"]), limit(100)));
+      const recentTxSnap = await getDocs(query(collection(db, "transactions"), orderBy("createdAt", "desc"), limit(6)));
 
-      const depositsSnap = await getDocs(query(
-        collection(db, "transactions"),
-        where("type", "==", "DEPOSIT"),
-        where("status", "==", "completed")
-      ));
+      // 3. Aggregation: Global Stats Read (Cost: 1 Read)
+      const globalStatsSnap = await getDoc(doc(db, "stats", "global"));
+      const globalData = globalStatsSnap.data() || {};
 
-      let totalDepositRevenue = 0;
-      depositsSnap.forEach(doc => {
-        // %8 Komisyon
-        totalDepositRevenue += (doc.data().amount || 0) * 0.08;
-      });
+      let totalRevenue = globalData.totalRevenue || 0;
+      let totalEscrow = globalData.totalEscrow || 0;
 
-      let totalWithdrawalRevenue = 0;
-      completedWithdrawalsSnap.forEach(doc => {
-        // Çekim ücretleri (sabit 10 TL veya %2 varsayalım, ama veride ne varsa)
-        totalWithdrawalRevenue += doc.data().fee || 0;
-      });
+      // Fallback only if aggregation doc is missing
+      if (!globalStatsSnap.exists()) {
+        const depositsSnap = await getDocs(query(collection(db, "transactions"), where("type", "==", "DEPOSIT"), where("status", "==", "completed")));
+        depositsSnap.forEach(d => totalRevenue += (d.data().amount || 0) * 0.08);
+      }
 
-      // Escrow Toplamı
-      let totalEscrow = 0;
-      usersSnap.forEach(doc => {
-        totalEscrow += doc.data().escrowBalance || 0;
-      });
-
-      // Heatmap Processing
+      // 4. Optimized Heatmap Processing (using limited tasks)
       const campusMap: any = {};
-      tasksSnap.forEach(tDoc => {
+      recentTasksSnap.forEach(tDoc => {
         const campus = tDoc.data().campusName || "Genel";
         campusMap[campus] = (campusMap[campus] || 0) + 1;
       });
@@ -115,39 +117,38 @@ export default function Dashboard() {
         .map(([name, count]: any) => ({ name, count }))
         .sort((a, b) => b.count - a.count);
 
-      setCampusActivity(heatmapData);
-      setSecurityAlerts(alertsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-      const recentTxSnap = await getDocs(query(
-        collection(db, "transactions"),
-        orderBy("createdAt", "desc"),
-        limit(6)
-      ));
-
-      const usersList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 5. Fetch User Names for recent transactions only
+      const involvedUserIds = Array.from(new Set(recentTxSnap.docs.map(d => d.data().userId)));
+      const userNamesMap: Record<string, string> = {};
+      await Promise.all(involvedUserIds.map(async (uid) => {
+          const uDoc = await getDoc(doc(db, "users", uid as string));
+          if (uDoc.exists()) userNamesMap[uid as string] = uDoc.data().name || "Kullanıcı";
+      }));
 
       const txList = recentTxSnap.docs.map(tDoc => {
         const txData = tDoc.data();
-        const userObj: any = usersList.find((u: any) => u.id === txData.userId);
         return {
           id: tDoc.id,
           ...txData,
-          userName: userObj?.name || "Bilinmeyen Kullanıcı",
+          userName: userNamesMap[txData.userId] || "Bilinmeyen Kullanıcı",
           dateStr: txData.createdAt?.toDate() ? txData.createdAt.toDate().toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : "Yeni"
         };
       });
 
+      setCampusActivity(heatmapData);
+      setSecurityAlerts(alertsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setRecentTransactions(txList);
+
       setStats({
-        totalUsers: usersSnap.size,
-        activeTasks: tasksSnap.size,
-        totalRevenue: totalDepositRevenue + totalWithdrawalRevenue,
+        totalUsers: usersCount.data().count,
+        activeTasks: activeTasksCount.data().count,
+        totalRevenue: totalRevenue,
         activeEscrow: totalEscrow,
-        pendingWithdrawals: withdrawalsSnap.size,
-        pendingVerifications: verifiedSnap.size,
-        pendingDisputes: disputesSnap.size,
+        pendingWithdrawals: pendingWithdrawalsCount.data().count,
+        pendingVerifications: unverifiedUsersCount.data().count,
+        pendingDisputes: disputesCount.data().count,
         riskyChats: alertsSnap.size,
-        boostedTasks: boostedSnap.size
+        boostedTasks: boostedTasksCount.data().count
       });
     } catch (e) {
       console.error("Dashboard data error:", e);
