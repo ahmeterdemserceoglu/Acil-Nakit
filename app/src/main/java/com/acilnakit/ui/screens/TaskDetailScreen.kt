@@ -26,6 +26,10 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
 import com.acilnakit.data.model.Task
 import com.acilnakit.data.model.TaskRequest
 import com.acilnakit.data.model.TaskStatus
@@ -62,12 +66,22 @@ fun TaskDetailScreen(
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showDisputeDialog by remember { mutableStateOf(false) }
     var showRatingDialog by remember { mutableStateOf(false) }
+    var showDeliveryDialog by remember { mutableStateOf(false) }
+
     var requestMessage by remember { mutableStateOf("") }
     
     var ratingValue by remember { mutableStateOf(5f) }
     var ratingComment by remember { mutableStateOf("") }
     
     var showCancelDialog by remember { mutableStateOf(false) }
+    var deliveryUri by remember { mutableStateOf<Uri?>(null) }
+    var deliveryNote by remember { mutableStateOf("") }
+
+    val photoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        deliveryUri = uri
+    }
     
     val scope = rememberCoroutineScope()
 
@@ -259,6 +273,68 @@ fun TaskDetailScreen(
         )
     }
 
+    // Teslimat Kanıtı Yükleme Dialog
+    if (showDeliveryDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeliveryDialog = false },
+            title = { Text("İşi Teslim Et", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("İşin tamamlandığını kanıtlamak için bir fotoğraf ekleyin (opsiyonel ama önerilir).", style = MaterialTheme.typography.bodySmall)
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Gray.copy(alpha = 0.1f))
+                            .clickable { photoLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (deliveryUri != null) {
+                            AsyncImage(
+                                model = deliveryUri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.AddAPhoto, null, tint = FluentBlue)
+                                Text("Fotoğraf Seç", style = MaterialTheme.typography.labelSmall, color = FluentBlue)
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = deliveryNote,
+                        onValueChange = { deliveryNote = it },
+                        placeholder = { Text("Teslimat notu (isteğe bağlı)...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        minLines = 2
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deliverTask(deliveryUri, deliveryNote)
+                        showDeliveryDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                ) {
+                    Text("Teslim Et")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeliveryDialog = false }) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+
     // İptal Onay Dialog
     if (showCancelDialog) {
         AlertDialog(
@@ -395,6 +471,17 @@ fun TaskDetailScreen(
                     }
                 }
 
+                // Teslimat Kanıtı Görüntüleme (Sadece teslim edildiyse veya tamamlandıysa)
+                if (currentTask.status in listOf(TaskStatus.DELIVERED, TaskStatus.COMPLETED, TaskStatus.DISPUTED) &&
+                    (currentTask.deliveryProofUrl != null || currentTask.deliveryNote != null)) {
+                    item {
+                        DeliveryProofCard(
+                            proofUrl = currentTask.deliveryProofUrl,
+                            note = currentTask.deliveryNote
+                        )
+                    }
+                }
+
                 // Başvuranlar (Sadece görev sahibi görür)
                 if (isOwner && requests.isNotEmpty() && currentTask.status in listOf(TaskStatus.OPEN, TaskStatus.REQUESTED)) {
                     item {
@@ -442,7 +529,7 @@ fun TaskDetailScreen(
                                     isLoading = isLoading,
                                     onRequest = { showRequestDialog = true },
                                     onStartWork = { viewModel.startWork() },
-                                    onDelivered = { viewModel.markAsDelivered() },
+                                    onDelivered = { showDeliveryDialog = true },
                                     onConfirm = { showConfirmDialog = true },
                                     onDispute = { showDisputeDialog = true },
 
@@ -647,6 +734,37 @@ fun EscrowStatusGuard(status: TaskStatus) {
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DeliveryProofCard(proofUrl: String?, note: String?) {
+    Text(
+        text = "Teslimat Kanıtı",
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (proofUrl != null) {
+                AsyncImage(
+                    model = proofUrl,
+                    contentDescription = "Teslimat Kanıtı",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            }
+            if (note != null) {
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }

@@ -30,6 +30,9 @@ class AuthViewModel @Inject constructor(
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState
+
+    private val _schoolName = MutableStateFlow<String?>(null)
+    val schoolName: StateFlow<String?> = _schoolName
     
     // Çıkış yapılırken başka işlemlerin durumu değiştirmesini engeller
     private var isLoggingOut = false
@@ -104,6 +107,8 @@ class AuthViewModel @Inject constructor(
                     val campus = userDoc.getString("campusName") ?: userDoc.getString("campus")
                     val school = userDoc.getString("school")
                     val name = userDoc.getString("name")
+
+                    _schoolName.value = school
                     android.util.Log.d("AuthViewModel", "Profile data - campus: $campus, school: $school, name: $name")
                     
                     if (campus.isNullOrEmpty() || school.isNullOrEmpty() || name.isNullOrEmpty()) {

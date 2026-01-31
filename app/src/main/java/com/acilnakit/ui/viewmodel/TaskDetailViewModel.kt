@@ -127,20 +127,24 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
-    fun markAsDelivered() {
+    fun deliverTask(proofUri: android.net.Uri?, note: String?) {
         val taskId = _taskId.value ?: return
         
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                taskRepository.markAsDelivered(taskId)
-                android.util.Log.d("TaskDetailVM", "Task marked as delivered: $taskId")
+                taskRepository.deliverTask(taskId, proofUri, note)
+                android.util.Log.d("TaskDetailVM", "Task delivered with proof: $taskId")
             } catch (e: Exception) {
-                android.util.Log.e("TaskDetailVM", "Failed to mark as delivered: ${e.message}")
+                android.util.Log.e("TaskDetailVM", "Failed to deliver task: ${e.message}")
             } finally {
                 _isLoading.value = false
             }
         }
+    }
+
+    fun markAsDelivered() {
+        deliverTask(null, null)
     }
 
     fun confirmDelivery() {

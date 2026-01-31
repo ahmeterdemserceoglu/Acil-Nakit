@@ -32,7 +32,8 @@ import com.acilnakit.ui.viewmodel.AuthViewModel
 data class University(
     val name: String,
     val logoUrl: String,
-    val campuses: List<String>
+    val campuses: List<String>,
+    val primaryColor: Long = 0xFF0078D4 // Default FluentBlue
 )
 
 @Composable
@@ -47,16 +48,16 @@ fun CampusSelectionScreen(
 
     val universities = remember {
         listOf(
-            University("İstanbul Teknik Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/d/df/İtü_logo.png", listOf("Ayazağa", "Maçka", "Taşkışla", "Gümüşsuyu", "Tuzla")),
-            University("Boğaziçi Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/a/a2/Bogazici_Universitesi_Logo.png", listOf("Güney", "Kuzey", "Hisar", "Uçaksavar", "Sarıtepe")),
-            University("Orta Doğu Teknik Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/b/b9/Odtü_logo.png", listOf("Merkez Yerleşke")),
-            University("Yıldız Teknik Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/5/5e/Yıldız_Teknik_Üniversitesi_Logosu.png", listOf("Davutpaşa", "Beşiktaş")),
-            University("Hacettepe Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/2/23/Hacettepe_Üniversitesi_Logosu.png", listOf("Beytepe", "Sıhhiye")),
-            University("Koç Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/0/05/Koç_Üniversitesi_logosu.png", listOf("Rumelifeneri", "Batı", "İstinye", "Nişantaşı")),
-            University("Bilkent Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/b/bf/Bilkent_Üniversitesi_Logosu.png", listOf("Merkez", "Doğu")),
-            University("İstanbul Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/d/d3/İstanbul_Üniversitesi_logosu.png", listOf("Beyazıt", "Laleli", "Vezneciler")),
-            University("Ankara Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/0/0e/Ankara_Üniversitesi_Logosu.png", listOf("Tandoğan", "Beşevler", "Cebeci", "Gölbaşı")),
-            University("Gazi Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/7/77/Gazi_Üniversitesi_Logosu.png", listOf("Merkez", "Maltepe", "Gölbaşı"))
+            University("İstanbul Teknik Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/d/df/İtü_logo.png", listOf("Ayazağa", "Maçka", "Taşkışla", "Gümüşsuyu", "Tuzla"), 0xFF0038A8),
+            University("Boğaziçi Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/a/a2/Bogazici_Universitesi_Logo.png", listOf("Güney", "Kuzey", "Hisar", "Uçaksavar", "Sarıtepe"), 0xFF003A70),
+            University("Orta Doğu Teknik Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/b/b9/Odtü_logo.png", listOf("Merkez Yerleşke"), 0xFFE30A17),
+            University("Yıldız Teknik Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/5/5e/Yıldız_Teknik_Üniversitesi_Logosu.png", listOf("Davutpaşa", "Beşiktaş"), 0xFF003D7C),
+            University("Hacettepe Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/2/23/Hacettepe_Üniversitesi_Logosu.png", listOf("Beytepe", "Sıhhiye"), 0xFFDA291C),
+            University("Koç Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/0/05/Koç_Üniversitesi_logosu.png", listOf("Rumelifeneri", "Batı", "İstinye", "Nişantaşı"), 0xFFAA182D),
+            University("Bilkent Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/b/bf/Bilkent_Üniversitesi_Logosu.png", listOf("Merkez", "Doğu"), 0xFF004F9F),
+            University("İstanbul Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/d/d3/İstanbul_Üniversitesi_logosu.png", listOf("Beyazıt", "Laleli", "Vezneciler"), 0xFF00563F),
+            University("Ankara Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/0/0e/Ankara_Üniversitesi_Logosu.png", listOf("Tandoğan", "Beşevler", "Cebeci", "Gölbaşı"), 0xFF003F7F),
+            University("Gazi Üniversitesi", "https://upload.wikimedia.org/wikipedia/tr/7/77/Gazi_Üniversitesi_Logosu.png", listOf("Merkez", "Maltepe", "Gölbaşı"), 0xFF002F6C)
         )
     }
 

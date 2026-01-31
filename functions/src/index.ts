@@ -675,6 +675,76 @@ export const sendAdminMessageV2 = onCall({ cors: true }, async (request) => {
     return { success: true };
 });
 
+// ==================== AGGREGATION SYSTEM (COST OPTIMIZATION) ====================
+
+/**
+ * Kullanıcı sayısı takibi
+ */
+export const onUserCreated = functionsV1.auth.user().onCreate(async (user) => {
+    console.log(`[Aggregation] New user created: ${user.uid}`);
+    await db.collection("stats").doc("global").set({
+        totalUsers: admin.firestore.FieldValue.increment(1)
+    }, { merge: true });
+});
+
+/**
+ * Finansal metriklerin (Gelir ve Escrow) takibi
+ * Transaction bazlı toplama (O(1) Dashboard okuması sağlar)
+ */
+export const onTransactionCreatedAggregation = functionsV1.firestore
+    .document("transactions/{txId}")
+    .onCreate(async (snapshot) => {
+        const tx = snapshot.data();
+        const statsRef = db.collection("stats").doc("global");
+
+        let revenueChange = 0;
+        let escrowChange = 0;
+
+        // 1. Gelir (Revenue) Hesaplama (%8 Depozit Komisyonu)
+        if (tx.type === "DEPOSIT" && tx.status === "completed") {
+            revenueChange += (tx.amount * 0.08);
+        }
+
+        // 2. Para Çekme Ücreti (Sabit 5 TL Gelir)
+        if (tx.type === "WITHDRAWAL") {
+            // Not: requestWithdrawalV2'de 5 TL kesiliyor, bu bir gelirdir.
+            revenueChange += 5.0;
+        }
+
+        // 3. Escrow (Blokeli Bakiye) Takibi
+        if (tx.type === "TASK_PAYMENT") {
+            // Ödeme bloke edildiğinde escrow artar (amount negatiftir, mutlak değer alıyoruz)
+            escrowChange += Math.abs(tx.amount);
+        } else if (tx.type === "EARNING" || tx.type === "REFUND" || tx.type === "PAYMENT_RECEIVED") {
+            // Ödeme serbest bırakıldığında veya iade edildiğinde escrow azalır
+            escrowChange -= Math.abs(tx.amount);
+        }
+
+        if (revenueChange !== 0 || escrowChange !== 0) {
+            console.log(`[Aggregation] Updating stats: Revenue +${revenueChange}, Escrow ${escrowChange}`);
+            await statsRef.set({
+                totalRevenue: admin.firestore.FieldValue.increment(revenueChange),
+                totalEscrow: admin.firestore.FieldValue.increment(escrowChange),
+                lastUpdateAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+    });
+
+/**
+ * Flash Task (Boost) gelir takibi
+ */
+export const onBoostAggregation = functionsV1.firestore
+    .document("transactions/{txId}")
+    .onCreate(async (snapshot) => {
+        const tx = snapshot.data();
+        if (tx.type === "TASK_BOOST") {
+            await db.collection("stats").doc("global").set({
+                totalRevenue: admin.firestore.FieldValue.increment(10.0), // 10 TL boost ücreti
+                lastUpdateAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+    });
+
 /**
  * Kullanıcı durumunu güncelle (Hesabı askıya al / aktif et)
  */

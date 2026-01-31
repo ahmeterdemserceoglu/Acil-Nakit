@@ -20,7 +20,8 @@ import javax.inject.Singleton
 
 @Singleton
 class TaskRepository @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val storage: com.google.firebase.storage.FirebaseStorage
 ) {
     private val tasksCollection = firestore.collection("tasks")
     private val requestsCollection = firestore.collection("task_requests")
@@ -35,6 +36,8 @@ class TaskRepository @Inject constructor(
         val subscription = tasksCollection
             .whereEqualTo("schoolName", school)
             .whereIn("status", listOf(TaskStatus.OPEN.name, TaskStatus.REQUESTED.name))
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     android.util.Log.e("TaskRepository", "Firestore error: ${error.message}")
@@ -70,6 +73,8 @@ class TaskRepository @Inject constructor(
     fun getMyCreatedTasks(userId: String): Flow<List<Task>> = callbackFlow {
         val subscription = tasksCollection
             .whereEqualTo("creatorId", userId)
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val tasks = snapshot?.toListModel<Task>() ?: emptyList()
@@ -84,6 +89,8 @@ class TaskRepository @Inject constructor(
     fun getMyAssignedTasks(userId: String): Flow<List<Task>> = callbackFlow {
         val subscription = tasksCollection
             .whereEqualTo("workerId", userId)
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val tasks = snapshot?.toListModel<Task>() ?: emptyList()
@@ -100,6 +107,8 @@ class TaskRepository @Inject constructor(
         // veya iki ayrı query birleştirilebilir. Basitlik ve real-time için iki listener:
         val subscription = tasksCollection
             .whereIn("status", listOf(TaskStatus.COMPLETED.name, TaskStatus.CANCELLED.name))
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(100)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val allArchived = snapshot?.toListModel<Task>() ?: emptyList()
@@ -121,6 +130,8 @@ class TaskRepository @Inject constructor(
                 TaskStatus.IN_PROGRESS.name, 
                 TaskStatus.DELIVERED.name
             ))
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) return@addSnapshotListener
                 val active = snapshot?.toListModel<Task>() ?: emptyList()
@@ -306,17 +317,35 @@ class TaskRepository @Inject constructor(
     // ==================== TESLİM VE ONAY SİSTEMİ ====================
     
     /**
-     * İşçi: İşi teslim ettim
+     * İşçi: İşi teslim ettim (Kanıtlı)
      */
-    suspend fun markAsDelivered(taskId: String) {
+    suspend fun deliverTask(taskId: String, proofUri: android.net.Uri?, note: String?) {
+        var proofUrl: String? = null
+
+        // Eğer resim varsa önce storage'a yükle
+        proofUri?.let { uri ->
+            val ref = storage.reference.child("delivery_proofs/$taskId/${System.currentTimeMillis()}.jpg")
+            ref.putFile(uri).await()
+            proofUrl = ref.downloadUrl.await().toString()
+        }
+
         tasksCollection.document(taskId).update(
             mapOf(
                 "status" to TaskStatus.DELIVERED.name,
                 "workerConfirmed" to true,
-                "deliveredAt" to Timestamp.now()
+                "deliveredAt" to Timestamp.now(),
+                "deliveryProofUrl" to proofUrl,
+                "deliveryNote" to note
             )
         ).await()
-        android.util.Log.d("TaskRepository", "Task $taskId marked as delivered")
+        android.util.Log.d("TaskRepository", "Task $taskId delivered with proof")
+    }
+
+    /**
+     * İşçi: İşi teslim ettim (Eski metod, geriye dönük uyumluluk için tutulabilir veya güncellenebilir)
+     */
+    suspend fun markAsDelivered(taskId: String) {
+        deliverTask(taskId, null, null)
     }
 
     /**

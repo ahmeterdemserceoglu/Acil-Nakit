@@ -31,6 +31,9 @@ import com.acilnakit.ui.theme.FluentBlue
 import com.acilnakit.ui.viewmodel.WithdrawalViewModel
 import com.acilnakit.util.toTL
 import com.acilnakit.util.hapticFeedback
+import com.acilnakit.util.successHaptic
+import com.acilnakit.util.BiometricAuthManager
+import androidx.fragment.app.FragmentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +54,7 @@ fun WithdrawalScreen(
 
     LaunchedEffect(success) {
         if (success) {
-            context.hapticFeedback(android.os.VibrationEffect.EFFECT_HEAVY_CLICK)
+            context.successHaptic()
             onBack()
         }
     }
@@ -104,7 +107,7 @@ fun WithdrawalScreen(
                             currentBalance.toTL(),
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Black,
-                            color = FluentBlue
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -220,8 +223,24 @@ fun WithdrawalScreen(
 
                 Button(
                     onClick = { 
-                        val amt = amount.toDoubleOrNull() ?: 0.0
-                        viewModel.requestWithdrawal(amt, iban, accountHolder)
+                        val activity = context as? FragmentActivity
+                        if (activity != null && BiometricAuthManager.isBiometricAvailable(context)) {
+                            BiometricAuthManager.showBiometricPrompt(
+                                activity = activity,
+                                title = "Transfer Onayı",
+                                subtitle = "₺$amount tutarındaki çekim işlemini onaylayın",
+                                onSuccess = {
+                                    val amt = amount.toDoubleOrNull() ?: 0.0
+                                    viewModel.requestWithdrawal(amt, iban, accountHolder)
+                                },
+                                onError = { errorMsg ->
+                                    // Handle error if needed
+                                }
+                            )
+                        } else {
+                            val amt = amount.toDoubleOrNull() ?: 0.0
+                            viewModel.requestWithdrawal(amt, iban, accountHolder)
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()

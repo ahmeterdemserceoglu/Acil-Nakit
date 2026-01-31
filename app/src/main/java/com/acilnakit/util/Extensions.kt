@@ -28,7 +28,7 @@ import com.google.firebase.Timestamp
  * Formats a Double as Turkish Lira currency.
  * Usage: 100.0.toTL() -> "₺100,00"
  */
-fun Double.toTL(): String = String.format("₺%.2f", this)
+fun Double.toTL(): String = String.format(Locale("tr", "TR"), "₺%.2f", this)
 
 /**
  * Formats a Double for price display (no decimal if whole number).
@@ -129,6 +129,37 @@ fun Context.hapticFeedback(effect: Int = -1) {
         @Suppress("DEPRECATION")
         vibrator.vibrate(10)
     }
+}
+
+/**
+ * Success tactical feedback.
+ */
+fun Context.successHaptic() {
+    this.hapticFeedback(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) VibrationEffect.EFFECT_HEAVY_CLICK else -1)
+}
+
+/**
+ * Error tactical feedback (Double pulse).
+ */
+fun Context.errorHaptic() {
+    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+    } else {
+        @Suppress("DEPRECATION") getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 50, 50, 50), -1))
+    } else {
+        @Suppress("DEPRECATION") vibrator.vibrate(200)
+    }
+}
+
+/**
+ * Warning tactical feedback (Soft pulse).
+ */
+fun Context.warningHaptic() {
+    this.hapticFeedback(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) VibrationEffect.EFFECT_TICK else -1)
 }
 
 // --- COMPOSE UI MODIFIERS ---

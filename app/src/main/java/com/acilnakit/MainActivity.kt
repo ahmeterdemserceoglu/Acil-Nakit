@@ -14,6 +14,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.acilnakit.ui.screens.*
 import com.acilnakit.ui.theme.AcilNakitTheme
+import com.acilnakit.ui.theme.getSchoolColor
 import com.acilnakit.ui.viewmodel.AuthState
 import com.acilnakit.ui.viewmodel.AuthViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -39,8 +40,13 @@ class MainActivity : FragmentActivity() {
         handleDeepLink(intent)
         
         setContent {
-            AcilNakitTheme {
+            val authViewModel: AuthViewModel = hiltViewModel()
+            val schoolName by authViewModel.schoolName.collectAsState()
+            val primaryColor = getSchoolColor(schoolName)
+
+            AcilNakitTheme(primaryColor = primaryColor) {
                 AcilNakitNavigation(
+                    authViewModel = authViewModel,
                     initialDeepLink = pendingDeepLink,
                     onDeepLinkHandled = { pendingDeepLink = null }
                 )

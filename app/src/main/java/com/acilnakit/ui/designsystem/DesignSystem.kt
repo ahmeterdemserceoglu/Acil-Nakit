@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -13,6 +14,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -51,6 +59,7 @@ fun Modifier.acrylicPanel(
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
@@ -58,8 +67,30 @@ fun GlassCard(
     val bottomColor = if (isDark) Color.White.copy(alpha = 0.02f) else Color.White.copy(alpha = 0.04f)
     val borderColor = if (isDark) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f)
 
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "Scale"
+    )
+
     Box(
         modifier = modifier
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .then(
+                if (onClick != null) {
+                    Modifier.pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                isPressed = true
+                                tryAwaitRelease()
+                                isPressed = false
+                            },
+                            onTap = { onClick() }
+                        )
+                    }
+                } else Modifier
+            )
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(surfaceColor, bottomColor)
@@ -145,7 +176,7 @@ fun Modifier.micaSurface(
 fun Badge(
     text: String,
     icon: ImageVector,
-    color: Color = FluentBlue
+    color: Color = MaterialTheme.colorScheme.primary
 ) {
     Surface(
         color = color.copy(alpha = 0.12f),
@@ -220,6 +251,7 @@ fun MissionControlProgress(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val primaryColor = MaterialTheme.colorScheme.primary
         steps.forEachIndexed { index, pair ->
             val isActive = index <= currentStepIndex
             val isCurrent = index == currentStepIndex
@@ -230,7 +262,7 @@ fun MissionControlProgress(
                     modifier = Modifier
                         .size(24.dp)
                         .background(
-                            color = if (isActive) FluentBlue else Color.Gray.copy(alpha = 0.2f),
+                            color = if (isActive) primaryColor else Color.Gray.copy(alpha = 0.2f),
                             shape = CircleShape
                         )
                 ) {
@@ -244,7 +276,7 @@ fun MissionControlProgress(
                 Text(
                     text = pair.second,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isActive) FluentBlue else Color.Gray,
+                    color = if (isActive) primaryColor else Color.Gray,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                     fontSize = 10.sp
                 )
@@ -255,7 +287,7 @@ fun MissionControlProgress(
                     modifier = Modifier
                         .height(2.dp)
                         .weight(0.5f)
-                        .background(if (index < currentStepIndex) FluentBlue else Color.Gray.copy(alpha = 0.2f))
+                        .background(if (index < currentStepIndex) primaryColor else Color.Gray.copy(alpha = 0.2f))
                 )
             }
         }
