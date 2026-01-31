@@ -176,7 +176,7 @@ fun Modifier.micaSurface(
 fun Badge(
     text: String,
     icon: ImageVector,
-    color: Color = FluentBlue
+    color: Color = MaterialTheme.colorScheme.primary
 ) {
     Surface(
         color = color.copy(alpha = 0.12f),
@@ -251,6 +251,7 @@ fun MissionControlProgress(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val primaryColor = MaterialTheme.colorScheme.primary
         steps.forEachIndexed { index, pair ->
             val isActive = index <= currentStepIndex
             val isCurrent = index == currentStepIndex
@@ -261,7 +262,7 @@ fun MissionControlProgress(
                     modifier = Modifier
                         .size(24.dp)
                         .background(
-                            color = if (isActive) FluentBlue else Color.Gray.copy(alpha = 0.2f),
+                            color = if (isActive) primaryColor else Color.Gray.copy(alpha = 0.2f),
                             shape = CircleShape
                         )
                 ) {
@@ -275,7 +276,7 @@ fun MissionControlProgress(
                 Text(
                     text = pair.second,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isActive) FluentBlue else Color.Gray,
+                    color = if (isActive) primaryColor else Color.Gray,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                     fontSize = 10.sp
                 )
@@ -286,7 +287,7 @@ fun MissionControlProgress(
                     modifier = Modifier
                         .height(2.dp)
                         .weight(0.5f)
-                        .background(if (index < currentStepIndex) FluentBlue else Color.Gray.copy(alpha = 0.2f))
+                        .background(if (index < currentStepIndex) primaryColor else Color.Gray.copy(alpha = 0.2f))
                 )
             }
         }
