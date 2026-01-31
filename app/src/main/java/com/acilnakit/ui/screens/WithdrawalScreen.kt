@@ -31,6 +31,7 @@ import com.acilnakit.ui.theme.FluentBlue
 import com.acilnakit.ui.viewmodel.WithdrawalViewModel
 import com.acilnakit.util.toTL
 import com.acilnakit.util.hapticFeedback
+import com.acilnakit.util.successHaptic
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +52,7 @@ fun WithdrawalScreen(
 
     LaunchedEffect(success) {
         if (success) {
-            context.hapticFeedback(android.os.VibrationEffect.EFFECT_HEAVY_CLICK)
+            context.successHaptic()
             onBack()
         }
     }
