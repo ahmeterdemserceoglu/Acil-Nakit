@@ -5,15 +5,37 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <include domain="sharedpref" path="."/>
+        <include domain="database" path="."/>
+        <include domain="file" path="."/>
+
+        <exclude domain="sharedpref" path="appid.xml"/>
+        <exclude domain="database" path="appid.xml"/>
+        <exclude domain="file" path="appid.xml"/>
+
+        <exclude domain="sharedpref" path="crashlytics"/>
+        <exclude domain="database" path="crashlytics"/>
+        <exclude domain="file" path="crashlytics"/>
+
+        <exclude domain="sharedpref" path="perf"/>
+        <exclude domain="database" path="perf"/>
+        <exclude domain="file" path="perf"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <include domain="sharedpref" path="."/>
+        <include domain="database" path="."/>
+        <include domain="file" path="."/>
+
+        <exclude domain="sharedpref" path="appid.xml"/>
+        <exclude domain="database" path="appid.xml"/>
+        <exclude domain="file" path="appid.xml"/>
+
+        <exclude domain="sharedpref" path="crashlytics"/>
+        <exclude domain="database" path="crashlytics"/>
+        <exclude domain="file" path="crashlytics"/>
+
+        <exclude domain="sharedpref" path="perf"/>
+        <exclude domain="database" path="perf"/>
+        <exclude domain="file" path="perf"/>
     </device-transfer>
-    -->
 </data-extraction-rules>
